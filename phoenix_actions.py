@@ -22,6 +22,8 @@ Two known simplifications, flagged rather than silently assumed:
     no confirmed original wiring from ExtractedComplaint back to a
     specific Evidence row existed in what survived either.
 """
+
+
 from __future__ import annotations
 
 import datetime
@@ -37,6 +39,13 @@ from phoenix.models import (
     ThemeVersion,
     OpportunityTheme,
     ThemeClusterAssignment,
+)
+
+from phoenix.solution_generation.report import (
+    generate_solutions,
+    list_generation_versions_for_opportunity,
+    get_active_solutions,
+    approve_blueprint,
 )
 from phoenix.source_selector import select_sources
 from phoenix.collectors.reddit_collector import RedditCollector
@@ -56,6 +65,7 @@ from phoenix.scoring.report import (
     list_score_versions as _list_score_versions,
 )
 from phoenix.scoring.exceptions import NoScorableInputError, ScoringVersionNotFoundError
+from phoenix.scoring.models import ScoringVersion, OpportunityScoreEntry
 
 
 class PhoenixThemeError(RuntimeError):
@@ -258,12 +268,35 @@ def get_report(run_id: int, theme_version: int | None = None) -> dict[str, Any]:
             session.query(Complaint).filter(Complaint.phoenix_run_id == run_id).all()
         )
 
+        scoring_version_row = (
+            session.query(ScoringVersion)
+            .filter(ScoringVersion.phoenix_run_id == run_id, ScoringVersion.is_active.is_(True))
+            .first()
+        )
+        score_by_cluster_id: dict[int, dict] = {}
+        if scoring_version_row is not None:
+            entries = (
+                session.query(OpportunityScoreEntry)
+                .filter(OpportunityScoreEntry.scoring_version_id == scoring_version_row.id)
+                .all()
+            )
+            score_by_cluster_id = {
+                e.cluster_id: {
+                    "status": e.status,
+                    "overall_score": e.overall_score,
+                    "commercial_confidence": e.commercial_confidence,
+                }
+                for e in entries
+            }
+        scoring_version_number = scoring_version_row.scoring_version if scoring_version_row else None
+
         cluster_payload = [
             {
                 "cluster_id": c.id,
                 "representative_text": c.representative_text,
                 "complaint_count": c.occurrence_count,
                 "source_diversity": c.source_diversity,
+                "score": score_by_cluster_id.get(c.id),
             }
             for c in clusters
         ]
@@ -326,6 +359,8 @@ def get_report(run_id: int, theme_version: int | None = None) -> dict[str, Any]:
             "theme_version": theme_version_row.version_number if theme_version_row else None,
             "theme_version_id": theme_version_row.id if theme_version_row else None,
             "themes": themes_payload,
+            "score_status": "scored" if scoring_version_row is not None else "not_scored",
+            "scoring_version": scoring_version_number,
         }
 
 
@@ -347,6 +382,9 @@ def list_reports() -> list[dict[str, Any]]:
                     "status": run.status,
                     "created_at": run.created_at,
                     "confidence_score": report.confidence_score if report else None,
+                    "complaints_analysed_count": report.complaints_analysed_count if report else 0,
+                    "unique_clusters_count": report.unique_clusters_count if report else 0,
+                    "sources_analysed": report.sources_analysed if report else [],
                 }
             )
         return result
@@ -508,3 +546,30 @@ def get_score(run_id: int, scoring_version: int | None = None):
 def list_scoring_versions(run_id: int):
     """List all scoring versions for a run, newest first."""
     return _list_score_versions(run_id)
+
+# ---------------------------------------------------------------------
+# Module 4 — Solution Generation Engine
+# ---------------------------------------------------------------------
+
+
+def submit_solution_generation(run_id: int, cluster_id: int, scoring_version: int | None = None):
+    """Generate SolutionBlueprints for a single selected opportunity (Module 4)."""
+    return generate_solutions(run_id, cluster_id, scoring_version=scoring_version)
+
+
+def get_solutions(run_id: int, cluster_id: int, scoring_version: int | None = None):
+    """
+    Fetch the currently active generation's blueprints for one opportunity,
+    or None if nothing has been generated yet for it.
+    """
+    return get_active_solutions(run_id, cluster_id, scoring_version=scoring_version)
+
+
+def get_solution_versions(run_id: int, cluster_id: int, scoring_version: int | None = None):
+    """List all solution generation versions for one opportunity, newest first."""
+    return list_generation_versions_for_opportunity(run_id, cluster_id, scoring_version=scoring_version)
+
+
+def approve_solution_blueprint(public_id: str, approved: bool = True):
+    """Set the Approve Solution flag on one blueprint, by its public ID."""
+    return approve_blueprint(public_id, approved=approved)

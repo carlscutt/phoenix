@@ -80,6 +80,15 @@ class OpportunityScoreEntry(TimestampMixin, Base):
         ForeignKey("phoenix_opportunity_themes.id"), nullable=True
     )
 
+    # Added for Module 4 (Solution Generation Engine), 2026-07-30 — approved
+    # non-breaking extension, see MODULE_04_SPECIFICATION.md §22a / decision 3.
+    # Sourced from ComplaintCluster.representative_text at score_run() time;
+    # previously that text was read into report.py's internal ai_inputs dict
+    # for prompt use only and never persisted or returned. Every existing
+    # caller of score_run()/get_score_report() is unaffected — this is a
+    # pure addition, nothing renamed or removed.
+    problem_statement: Mapped[str] = mapped_column(String, nullable=False, default="")
+
     overall_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     status: Mapped[str] = mapped_column(String(30), nullable=False)  # "Scored" | "Insufficient Evidence"
     commercial_confidence: Mapped[str | None] = mapped_column(String(10), nullable=True)

@@ -254,6 +254,7 @@ def score_run(
                 {
                     "opportunity_id": cid,
                     "theme_id": theme_map.get(cid),
+                    "problem_statement": c["representative_text"],
                     "overall_score": overall_score,
                     "score_breakdown": {
                         cat: {
@@ -287,6 +288,7 @@ def score_run(
                 {
                     "opportunity_id": c["cluster_id"],
                     "theme_id": theme_map.get(c["cluster_id"]),
+                    "problem_statement": c["representative_text"],
                     "overall_score": None,
                     "score_breakdown": {},
                     "weights_applied": {},
@@ -366,6 +368,7 @@ def score_run(
                     scoring_version_id=scoring_version_row.id,
                     cluster_id=e["opportunity_id"],
                     theme_id=e["theme_id"],
+                    problem_statement=e["problem_statement"],
                     overall_score=e["overall_score"],
                     status=e["status"],
                     commercial_confidence=e["commercial_confidence"],
@@ -432,6 +435,7 @@ def get_score_report(run_id: int, scoring_version: Optional[int] = None) -> Dict
                 {
                     "opportunity_id": e.cluster_id,
                     "theme_id": e.theme_id,
+                    "problem_statement": e.problem_statement,
                     "overall_score": e.overall_score,
                     "score_breakdown": e.score_breakdown,
                     "weights_applied": e.weights_applied,
