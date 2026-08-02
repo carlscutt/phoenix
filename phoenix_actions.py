@@ -21,6 +21,11 @@ Two known simplifications, flagged rather than silently assumed:
   - Complaint.evidence_id is left unset (nullable in the schema) —
     no confirmed original wiring from ExtractedComplaint back to a
     specific Evidence row existed in what survived either.
+
+MODULE 5 ADDITION (2026-08-01): three thin wrapper functions added at
+the bottom, same shape as Module 4's own submit_solution_generation() /
+get_solutions() / get_solution_versions() — nothing above this
+docstring's original content changed.
 """
 
 
@@ -66,6 +71,13 @@ from phoenix.scoring.report import (
 )
 from phoenix.scoring.exceptions import NoScorableInputError, ScoringVersionNotFoundError
 from phoenix.scoring.models import ScoringVersion, OpportunityScoreEntry
+
+# Module 5 (new)
+from phoenix.commercial_validation.report import (
+    validate_solutions,
+    get_active_validations,
+    list_validation_versions_for_opportunity,
+)
 
 
 class PhoenixThemeError(RuntimeError):
@@ -573,3 +585,28 @@ def get_solution_versions(run_id: int, cluster_id: int, scoring_version: int | N
 def approve_solution_blueprint(public_id: str, approved: bool = True):
     """Set the Approve Solution flag on one blueprint, by its public ID."""
     return approve_blueprint(public_id, approved=approved)
+
+
+# ---------------------------------------------------------------------
+# Module 5 — Commercial Validation Engine
+# Same thin-wrapper pattern as Module 4 above: each function here does
+# nothing but call straight into phoenix/commercial_validation/report.py.
+# ---------------------------------------------------------------------
+
+
+def submit_solution_validation(run_id: int, cluster_id: int, scoring_version: int | None = None):
+    """Validate every active SolutionBlueprint for one opportunity (Module 5)."""
+    return validate_solutions(run_id, cluster_id, scoring_version=scoring_version)
+
+
+def get_validations(run_id: int, cluster_id: int):
+    """
+    Fetch the currently active validation's results for one opportunity,
+    or None if nothing has been validated yet for it.
+    """
+    return get_active_validations(run_id, cluster_id)
+
+
+def get_validation_versions(run_id: int, cluster_id: int):
+    """List all validation versions for one opportunity, newest first."""
+    return list_validation_versions_for_opportunity(run_id, cluster_id)

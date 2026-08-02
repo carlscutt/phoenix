@@ -12,38 +12,6 @@ get_session()'s auto-commit-on-clean-exit (no manual session.commit()),
 LoggingService's detail=dict[str, Any] contract, get_model_service()/
 get_logging_service() via the registry, prior-active-deactivation before
 persisting the new version.
-
---------------------------------------------------------------------
-MODULE 5 CONTRACT EXTENSION (approved, additive, non-breaking)
---------------------------------------------------------------------
-Per the Module 5 Architecture Review, two gaps were found in this
-module's output contract: (1) problem_statement and
-supporting_evidence_refs live on Module 3's OpportunityScoreEntry and
-were never surfaced here, which meant Module 5 couldn't get them
-without reaching into Module 3 directly — a violation of Module 5's
-own "never access Modules 1-3 directly" isolation rule; (2)
-get_active_solutions() (the function studio.html actually calls on
-every normal page load) returned no audit metadata at all, unlike
-generate_solutions().
-
-Both are fixed here as return-dict additions only:
-  - problem_statement / supporting_evidence_refs are opportunity-level
-    (the same for every blueprint in a given generation run), sourced
-    from `entry`, which both functions already have in scope via
-    get_opportunity_entry() — no new DB column, no migration. Placed
-    once at the top level of the returned dict, not duplicated onto
-    every blueprint.
-  - get_active_solutions() now returns the same "audit" block shape
-    generate_solutions() already returns, built from the already-
-    queried active SolutionGenerationVersion row (module_version,
-    prompt_version, model_used, temperature, hash, created_at are all
-    already persisted columns on that row).
-
-No changes to models.py, no schema change, no ALTER TABLE. Any
-existing caller that ignores the new keys is unaffected.
-Per Carl's freeze rule: after this extension is verified against real
-data, Module 4 is frozen again — no further changes without a genuine
-defect.
 """
 
 from __future__ import annotations
@@ -119,8 +87,7 @@ def generate_solutions(
       - a §15 "Insufficient Commercial Evidence" result (no AI call made,
         or too few candidates survived validation), or
       - the assembled result: persisted SolutionGenerationVersion +
-        SolutionBlueprint rows, plus the audit block, plus (Module 5
-        extension) problem_statement / supporting_evidence_refs.
+        SolutionBlueprint rows, plus the audit block.
     """
     try:
         fetched = get_opportunity_entry(run_id, cluster_id, scoring_version)
@@ -281,11 +248,6 @@ def generate_solutions(
             "status": "Generated",
             "candidates_generated": len(candidates),
             "candidates_rejected": len(rejected),
-            # --- Module 5 extension: opportunity-level context, same for
-            # every blueprint in this generation run, sourced from `entry`
-            # (already fetched above) rather than a new DB column. ---
-            "problem_statement": entry.get("problem_statement", ""),
-            "supporting_evidence_refs": entry.get("supporting_evidence_refs", []),
             "blueprints": [
                 {
                     "public_id": b.public_id,
@@ -386,15 +348,8 @@ def get_active_solutions(
     one opportunity, or None if nothing has been generated for it yet.
     Used by the Studio UI to show existing blueprints without triggering
     a new (expensive, real-Ollama-call) generation on every page load.
-
-    Module 5 extension: now also returns problem_statement /
-    supporting_evidence_refs (sourced from `entry`, same as
-    generate_solutions()) and the same "audit" block shape
-    generate_solutions() returns (sourced from the already-queried
-    active_version row's own persisted columns — no new query needed).
     """
     fetched = get_opportunity_entry(run_id, cluster_id, scoring_version)
-    entry = fetched["entry"]
 
     with get_session() as session:
         from phoenix.scoring.models import ScoringVersion
@@ -429,12 +384,7 @@ def get_active_solutions(
         )
 
         return {
-            "run_id": run_id,
-            "cluster_id": cluster_id,
             "generation_version": active_version.generation_version,
-            # --- Module 5 extension ---
-            "problem_statement": entry.get("problem_statement", ""),
-            "supporting_evidence_refs": entry.get("supporting_evidence_refs", []),
             "blueprints": [
                 {
                     "public_id": b.public_id,
@@ -460,18 +410,6 @@ def get_active_solutions(
                 }
                 for b in blueprint_rows
             ],
-            # --- Module 5 extension: same shape as generate_solutions()'s
-            # audit block, built from active_version's own persisted
-            # columns (no re-computation, no new hash). ---
-            "audit": {
-                "module_version": active_version.module_version,
-                "prompt_version": active_version.prompt_version,
-                "model_used": active_version.model_used,
-                "temperature": active_version.temperature,
-                "generation_version": active_version.generation_version,
-                "timestamp": active_version.created_at.isoformat(),
-                "hash": active_version.hash,
-            },
         }
 
 

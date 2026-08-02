@@ -1,6 +1,6 @@
 """
 phoenix/routes.py — Flask blueprint for all Phoenix API routes
-(Modules 1-4).
+(Modules 1-5).
 
 REBUILT 2026-07-31: the live routes.py was found to contain only
 "addition fragments" (Module 3's and Module 4's, pasted one after
@@ -18,6 +18,15 @@ caller), those aren't reconstructable from what's available this
 session and would need to be re-added separately — nothing here
 removes anything real, but nothing invisible to studio.html could be
 recovered either.
+
+MODULE 5 ADDITION (2026-08-01): three new routes at the bottom, same
+URL-nesting convention as Module 4's own opportunity-scoped routes
+(/api/phoenix/reports/<run_id>/opportunities/<cluster_id>/...). These
+are NEW — there was no prior studio.html fetch() call to confirm them
+against, since the UI for them doesn't exist yet either (that's Step
+10, right after this). Verify these against the real UI once Step 10's
+studio.html changes are wired up, same as every other route here was
+originally verified against a real caller.
 """
 
 from __future__ import annotations
@@ -37,6 +46,9 @@ from phoenix.phoenix_actions import (
     get_solutions,
     get_solution_versions,
     approve_solution_blueprint,
+    submit_solution_validation,
+    get_validations,
+    get_validation_versions,
 )
 from phoenix.solution_generation.exceptions import BlueprintNotFoundError
 
@@ -183,4 +195,51 @@ def approve_solution_route(public_id):
         result = approve_solution_blueprint(public_id, approved=approved)
         return jsonify(result), 200
     except BlueprintNotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+
+
+# ---------------------------------------------------------------------
+# Module 5 — Commercial Validation Engine
+# Same URL-nesting convention as Module 4's opportunity-scoped routes
+# directly above. NEW routes — not yet confirmed against a real
+# studio.html fetch() call (Step 10 wires that up next); verify these
+# against the real UI once that's in place.
+# ---------------------------------------------------------------------
+
+
+@phoenix_bp.route(
+    "/api/phoenix/reports/<int:run_id>/opportunities/<int:cluster_id>/validations",
+    methods=["POST"],
+)
+def validate_solutions_route(run_id, cluster_id):
+    scoring_version = request.json.get("scoring_version") if request.is_json else None
+    try:
+        result = submit_solution_validation(run_id, cluster_id, scoring_version=scoring_version)
+        return jsonify(result), 201
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+
+
+@phoenix_bp.route(
+    "/api/phoenix/reports/<int:run_id>/opportunities/<int:cluster_id>/validations",
+    methods=["GET"],
+)
+def get_validations_route(run_id, cluster_id):
+    try:
+        result = get_validations(run_id, cluster_id)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+    if result is None:
+        return jsonify({"validated_blueprints": [], "validation_version": None}), 200
+    return jsonify(result), 200
+
+
+@phoenix_bp.route(
+    "/api/phoenix/reports/<int:run_id>/opportunities/<int:cluster_id>/validations/versions",
+    methods=["GET"],
+)
+def list_validation_versions_route(run_id, cluster_id):
+    try:
+        return jsonify(get_validation_versions(run_id, cluster_id)), 200
+    except ValueError as e:
         return jsonify({"error": str(e)}), 404
