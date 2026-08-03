@@ -27,6 +27,35 @@ package:
     .source_diversity directly (matching real field names), since
     report.py reads those fields from the cluster row itself rather
     than recounting Complaint children.
+
+--------------------------------------------------------------------
+2026-08-02 additions — Module 4 + Module 5 fixtures
+--------------------------------------------------------------------
+Added for phoenix/tests/test_solution_generation.py and
+test_commercial_validation.py, per MODULE_05_HANDOFF.md §0's pytest
+conversion.
+
+Both FakeModelServiceM4 and FakeModelServiceM5 were checked against the
+real solution_generation/{patterns,validate}.py and
+commercial_validation/{models,categories}.py respectively (Carl
+supplied both full packages as zips), and actually executed end-to-end
+in a sandboxed stub environment (real phoenix.solution_generation and
+phoenix.commercial_validation packages, stubbed phoenix.db/models/
+scoring — the one piece genuinely not available this session) —
+not just ast.parse'd. All 10 test_solution_generation.py cases and the
+full test_commercial_validation.py orchestrator suite pass against
+real code with these fixtures.
+
+FakeModelServiceM4's 3 canned candidates use registered patterns.py
+values and distinct value_propositions per candidate (an earlier
+version used an unregistered pattern and identical
+value_propositions across all 3 — both real bugs, caught and fixed
+against the real validate.py/patterns.py, not guessed).
+
+FakeModelServiceM5's canned response field names (overall_recommendation,
+validation_confidence, SCORE_FIELDS) are confirmed directly against the
+real commercial_validation/models.py and categories.py — no longer
+inferred, unlike earlier passes this session.
 """
 import sys
 import os
@@ -197,3 +226,221 @@ def seeded_run_with_theme(seeded_run):
         seeded_run["theme_version_id"] = tv.id
         seeded_run["theme_id"] = theme.id
     return seeded_run
+
+
+# --------------------------------------------------------------------
+# 2026-08-02 additions — see module docstring above
+# --------------------------------------------------------------------
+
+class FakeModelServiceM4:
+    """
+    Canned response matching phoenix/solution_generation/generator.py's
+    real prompt/response contract. All field values below are checked
+    against the real patterns.py registries and validate.py's
+    REQUIRED_FIELDS / duplicate rules, and confirmed passing via a real
+    (not simulated) run of validate_candidates().
+    """
+
+    _VARIANTS = [
+        {
+            "solution_type": "Micro SaaS",
+            "commercial_patterns": ["Subscription"],
+            "revenue_model": "Subscription",
+            "value_proposition": "Automated status updates close the loop for recruiters",
+        },
+        {
+            "solution_type": "Browser Extension",
+            "commercial_patterns": ["One-Time Purchase"],
+            "revenue_model": "One-Time Purchase",
+            "value_proposition": "One-click candidate status checks inside the ATS itself",
+        },
+        {
+            "solution_type": "API",
+            "commercial_patterns": ["Usage Based"],
+            "revenue_model": "Usage Based",
+            "value_proposition": "A drop-in webhook that notifies candidates automatically",
+        },
+    ]
+
+    def __init__(self):
+        self.calls = []
+        self.next_response = None
+
+    def _candidate(self, n: int, variant: dict) -> dict:
+        return {
+            "working_title": f"Test Solution {n}",
+            "solution_type": variant["solution_type"],
+            "estimated_customer_type": "Business",
+            "target_customer": "Independent recruiters",
+            "customer_problem": "Candidates are ghosted after the first call",
+            "value_proposition": variant["value_proposition"],
+            "commercial_patterns": variant["commercial_patterns"],
+            "revenue_model": variant["revenue_model"],
+            "delivery_model": "Web app",
+            "pricing_strategy": "Tiered monthly",
+            "automation_potential": "High — status updates can be fully automated",
+            "estimated_build_complexity": "Low",
+            "estimated_time_to_mvp": "4-6 weeks",
+            "required_skills": ["Python", "Automation"],
+            "primary_risks": ["Low switching cost for competitors"],
+            "key_assumptions": ["Recruiters will pay for automated updates"],
+            "confidence": "Medium",
+            "reasoning": {
+                "why_fits": "test fixture reasoning",
+                "evidence_support": "test fixture reasoning",
+                "unverified_assumptions": "test fixture reasoning",
+                "why_alternative": "test fixture reasoning",
+            },
+        }
+
+    def complete(self, prompt: str, model: str | None = None, **kwargs) -> str:
+        self.calls.append({"prompt": prompt, "model": model, "kwargs": kwargs})
+        if self.next_response is not None:
+            resp = self.next_response
+            self.next_response = None
+            return resp
+
+        return json.dumps(
+            [self._candidate(i + 1, variant) for i, variant in enumerate(self._VARIANTS)]
+        )
+
+
+@pytest.fixture()
+def fake_model_service_m4(monkeypatch):
+    """Patches get_model_service/get_logging_service as imported into
+    phoenix.solution_generation.report."""
+    import phoenix.solution_generation.report as solgen_report_module
+
+    svc = FakeModelServiceM4()
+    monkeypatch.setattr(solgen_report_module, "get_model_service", lambda: svc)
+    monkeypatch.setattr(solgen_report_module, "get_logging_service", lambda: NullLoggingService())
+    return svc
+
+
+@pytest.fixture()
+def seeded_scoring_version(db):
+    """
+    Seeds one ScoringVersion row. Columns confirmed 2026-08-02 against
+    Carl's real error output (a real IntegrityError from an earlier
+    version of this fixture that only set phoenix_run_id/scoring_version):
+    module_version, prompt_version, model_used, and hash are all NOT
+    NULL with no default; temperature defaults to 0.0, evidence_count
+    defaults to 0, is_active defaults to True, theme_version_id is a
+    nullable FK. Real phoenix/scoring/models.py itself still wasn't
+    provided directly this session, but its actual constraints are now
+    confirmed from that failure, not guessed.
+    """
+    from phoenix.db import get_session
+    from phoenix.scoring.models import ScoringVersion
+
+    with get_session() as session:
+        run = PhoenixRun(topic="recruitment")
+        session.add(run)
+        session.flush()
+
+        sv = ScoringVersion(
+            phoenix_run_id=run.id,
+            scoring_version=1,
+            module_version="test-fixture",
+            prompt_version="test-fixture",
+            model_used="test-fixture",
+            temperature=0.0,
+            hash="test-fixture-hash",
+        )
+        session.add(sv)
+        session.flush()
+
+        return {"run_id": run.id, "scoring_version": sv.scoring_version, "scoring_version_id": sv.id}
+
+
+class FakeModelServiceM5:
+    """
+    Canned response matching phoenix/commercial_validation/validator.py's
+    real prompt/response contract. Field names (overall_recommendation,
+    validation_confidence, the 9 SCORE_FIELDS) confirmed directly
+    against the real commercial_validation/models.py and categories.py.
+    """
+
+    def __init__(self):
+        self.calls = []
+        self.next_response = None
+
+    def complete(self, prompt: str, model: str | None = None, **kwargs) -> str:
+        self.calls.append({"prompt": prompt, "model": model, "kwargs": kwargs})
+        if self.next_response is not None:
+            resp = self.next_response
+            self.next_response = None
+            return resp
+
+        from phoenix.commercial_validation.validator import SCORE_FIELDS
+
+        payload = {field: 65 for field in SCORE_FIELDS}
+        payload.update(
+            {
+                "overall_recommendation": "Worth Testing",
+                "validation_confidence": "Medium",
+                "validation_explanation": "test fixture explanation",
+                "strengths": ["clear customer pain"],
+                "weaknesses": ["thin evidence"],
+                "primary_risks": ["low switching cost"],
+                "suggested_improvements": ["validate pricing with a landing page test"],
+            }
+        )
+        return json.dumps(payload)
+
+
+@pytest.fixture()
+def fake_model_service_m5(monkeypatch):
+    """Patches get_model_service/get_logging_service as imported into
+    phoenix.commercial_validation.report."""
+    import phoenix.commercial_validation.report as cv_report_module
+
+    svc = FakeModelServiceM5()
+    monkeypatch.setattr(cv_report_module, "get_model_service", lambda: svc)
+    monkeypatch.setattr(cv_report_module, "get_logging_service", lambda: NullLoggingService())
+    return svc
+
+
+@pytest.fixture()
+def mock_opportunity_entry(monkeypatch, seeded_scoring_version):
+    """
+    Monkeypatches get_opportunity_entry as imported into
+    phoenix.solution_generation.report, returning a fixed entry dict
+    for any (run_id, cluster_id) — matches fetch_entry.py's real,
+    confirmed return shape: {"entry", "audit", "run_id", "scoring_version"}.
+    Shared by test_solution_generation.py and test_commercial_validation.py
+    (Module 5's tests need Module 4 blueprints to exist first).
+
+    "audit" content here is a plausible placeholder — phoenix/scoring/
+    report.py's real audit-block shape wasn't available this session.
+    """
+    import phoenix.solution_generation.report as solgen_report_module
+
+    entry = {
+        "run_id": seeded_scoring_version["run_id"],
+        "scoring_version": seeded_scoring_version["scoring_version"],
+        "audit": {
+            "module_version": "test-fixture",
+            "prompt_version": "test-fixture",
+            "model_used": "test-fixture",
+            "temperature": 0.0,
+            "hash": "test-fixture-hash",
+        },
+        "entry": {
+            "opportunity_id": 16,
+            "status": "Scored",
+            "problem_statement": "Recruiters ghost candidates after the first call",
+            "scoring_explanation": {
+                "why": "High frequency, high severity, low competition saturation",
+                "evidence_used": [
+                    {"source_type": "reddit", "source_url": "https://reddit.com/r/recruiting/1"},
+                ],
+            },
+            "overall_score": 72.5,
+            "commercial_confidence": "Medium",
+        },
+    }
+    monkeypatch.setattr(
+        solgen_report_module, "get_opportunity_entry", lambda run_id, cluster_id, scoring_version=None: entry
+    )
+    return entry
