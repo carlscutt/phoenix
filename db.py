@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
 from phoenix.models import Base
@@ -19,6 +19,12 @@ DB_PATH = Path(__file__).resolve().parent / "phoenix.db"
 DB_URL = f"sqlite:///{DB_PATH}"
 
 _engine = create_engine(DB_URL, connect_args={"check_same_thread": False})
+
+@event.listens_for(_engine, "connect")
+def enable_sqlite_foreign_keys(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
 _SessionLocal = sessionmaker(bind=_engine, autoflush=False, autocommit=False)
 
 
