@@ -1,5 +1,35 @@
+# Database
 phoenix.db
+*.db
+*.sqlite3
+
+# Environment
 .env
+.venv/
+venv/
+
+# Python
 __pycache__/
 *.pyc
 .pytest_cache/
+.pytest_cache/**
+.mypy_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+dist/
+build/
+
+# Local documentation
+V1/
+V1.1/
+
+# Archives
+*.zip
