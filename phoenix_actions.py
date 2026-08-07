@@ -79,6 +79,13 @@ from phoenix.commercial_validation.report import (
     list_validation_versions_for_opportunity,
 )
 
+# Module 6 (new)
+from phoenix.business_blueprint.report import (
+    generate_business_blueprint,
+    get_active_blueprint,
+    list_blueprint_versions,
+)
+
 
 class PhoenixThemeError(RuntimeError):
     """Raised when theming is attempted on a run with no OpportunityReport yet."""
@@ -610,3 +617,35 @@ def get_validations(run_id: int, cluster_id: int):
 def get_validation_versions(run_id: int, cluster_id: int):
     """List all validation versions for one opportunity, newest first."""
     return list_validation_versions_for_opportunity(run_id, cluster_id)
+
+
+# ---------------------------------------------------------------------
+# Module 6 — Business Blueprint Engine
+# Same thin-wrapper pattern as Modules 4 and 5 above: each function here
+# does nothing but call straight into phoenix/business_blueprint/report.py.
+# Scoped to a single solution_public_id throughout (Decision 3, approved
+# with the Module 6 Build Order) — not run_id/cluster_id alone, since a
+# Business Blueprint targets one specific validated candidate, not "the
+# opportunity" as a whole.
+# ---------------------------------------------------------------------
+
+
+def submit_business_blueprint_generation(run_id: int, cluster_id: int, solution_public_id: str):
+    """Generate a Business Blueprint for one validated solution (Module 6)."""
+    return generate_business_blueprint(run_id, cluster_id, solution_public_id)
+
+
+def get_business_blueprint(solution_public_id: str):
+    """
+    Fetch the currently active Business Blueprint for a solution_public_id,
+    or None if nothing has been generated yet for it.
+    """
+    return get_active_blueprint(solution_public_id)
+
+
+def get_business_blueprint_versions(solution_public_id: str):
+    """List all Business Blueprint versions for a solution_public_id, newest
+    first — list_blueprint_versions() itself returns oldest-first (report.py's
+    own internal convention), reversed here to match every other
+    list_*_versions() wrapper's newest-first contract in this file."""
+    return list(reversed(list_blueprint_versions(solution_public_id)))
