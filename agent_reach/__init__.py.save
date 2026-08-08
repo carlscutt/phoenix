@@ -1,0 +1,91 @@
+from agent_reach.registry import registry
+from agent_reach.runner import runner
+
+from agent_reach.collectors.rss import RSSCollector
+
+registry.register(
+    RSSCollector(
+        [
+            "https://hnrss.org/frontpage",
+            "https://feeds.feedburner.com/oreilly/radar",
+        ]
+    )
+)
+from agent_reach.registry import registry
+from agent_reach.runner import runner
+
+from agent_reach.collectors.rss import RSSCollector
+
+registry.register(
+    RSSCollector(
+        [
+            "https://hnrss.org/frontpage",
+            "https://feeds.feedburner.com/oreilly/radar",
+        ]
+    )
+)
+from agent_reach.registry import registry
+from agent_reach.runner import runner
+
+from agent_reach.collectors.rss import RSSCollector
+
+registry.register(
+    RSSCollector(
+        [
+            "https://hnrss.org/frontpage",
+            "https://feeds.feedburner.com/oreilly/radar",
+        ]
+    )
+)
+from agent_reach.registry import registry
+from agent_reach.runner import runner
+
+from agent_reach.collectors.rss import RSSCollector
+
+registry.register(
+    RSSCollector(
+        [
+            "https://hnrss.org/frontpage",
+            "https://feeds.feedburner.com/oreilly/radar",
+        ]
+    )
+)
+from agent_reach.registry import registry
+from agent_reach.runner import runner
+
+from agent_reach.collectors.rss import RSSCollector
+
+registry.register(
+    RSSCollector(
+        [
+            "https://hnrss.org/frontpage",
+            "https://feeds.feedburner.com/oreilly/radar",
+        ]
+    )
+)
+from agent_reach.registry import registry
+from agent_reach.runner import runner
+
+from agent_reach.collectors.rss import RSSCollector
+
+registry.register(
+    RSSCollector(
+        [
+            "https://hnrss.org/frontpage",
+            "https://feeds.feedburner.com/oreilly/radar",
+        ]
+    )
+)
+from agent_reach.registry import registry
+from agent_reach.runner import runner
+
+from agent_reach.collectors.rss import RSSCollector
+
+registry.register(
+    RSSCollector(
+        [
+            "https://hnrss.org/frontpage",
+            "https://feeds.feedburner.com/oreilly/radar",
+        ]
+    )
+)
