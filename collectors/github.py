@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 
-from collectors.base import BaseCollector
-from integrations.agent_reach.evidence import collect
+from phoenix.collectors.base import BaseCollector
+from phoenix.integrations.agent_reach.evidence import collect
 
 
 class GitHubCollector(BaseCollector):

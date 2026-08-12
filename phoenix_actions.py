@@ -53,7 +53,7 @@ from phoenix.solution_generation.report import (
     approve_blueprint,
 )
 from phoenix.source_selector import select_sources
-from phoenix.collectors.reddit_collector import RedditCollector
+from phoenix.collectors.reddit import RedditCollector
 from phoenix.collectors.base import RawEvidence
 from phoenix.extraction import extract_complaints
 from phoenix.clustering import cluster_complaints

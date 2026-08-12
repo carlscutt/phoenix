@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import yaml
 
-from collectors.base import BaseCollector
-from integrations.agent_reach.adapter import doctor
-from integrations.agent_reach.evidence import collect
-from integrations.agent_reach.exceptions import BackendUnavailableError
+from phoenix.collectors.base import BaseCollector
+from phoenix.integrations.agent_reach.adapter import doctor
+from phoenix.integrations.agent_reach.evidence import collect
+from phoenix.integrations.agent_reach.exceptions import BackendUnavailableError
 
 
 class RedditCollector(BaseCollector):
