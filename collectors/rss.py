@@ -3,6 +3,8 @@ from __future__ import annotations
 import feedparser
 
 from collectors.base import BaseCollector
+from integrations.agent_reach.adapter import doctor
+from integrations.agent_reach.exceptions import BackendUnavailableError
 
 
 class RSSCollector(BaseCollector):
@@ -16,12 +18,20 @@ class RSSCollector(BaseCollector):
         limit: int = 25,
     ) -> list[dict]:
         """
-        Collect RSS evidence using the backend currently
-        provisioned by Agent Reach.
+        Collect RSS evidence using the RSS backend provisioned by Agent Reach.
 
-        Agent Reach provisions feedparser.
-        Phoenix only performs the mapping.
+        Agent Reach owns backend availability; Phoenix performs only the
+        feed parsing and evidence mapping because the supported Agent Reach
+        RSS backend is feedparser itself.
         """
+
+        status = doctor()
+        backend = status["rss"]["active_backend"]
+
+        if backend != "feedparser":
+            raise BackendUnavailableError(
+                "No RSS feedparser backend is currently provisioned by Agent Reach."
+            )
 
         feed = feedparser.parse(feed_url)
 

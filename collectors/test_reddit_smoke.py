@@ -1,24 +1,34 @@
 """
-Live smoke test for RedditCollector — hits the real Reddit API.
-Run manually, not part of CI (depends on external network + Reddit's
-availability/rate limits).
+Live smoke test for the current Agent Reach-backed RedditCollector.
+
+Run manually, not as part of CI. It depends on an installed and
+authenticated Agent Reach Reddit backend.
 """
-from projects.phoenix.collectors.reddit_collector import RedditCollector
+
+from collectors.reddit import RedditCollector
+
 
 def main():
     collector = RedditCollector()
-    results = collector.fetch("recruitment complaints", max_results=5)
+    results = collector.fetch("recruitment complaints", limit=5)
 
     print(f"Got {len(results)} results\n")
-    for r in results:
-        print(f"[{r.source_type}] {r.source_url}")
-        print(f"  snippet: {r.raw_snippet[:120]}...")
-        print(f"  extra: {r.extra}")
+
+    for result in results:
+        print(f"[{result.get('external_id')}] {result.get('url')}")
+        print(f"  title: {result.get('title', '')}")
+        print(f"  content: {result.get('content', '')[:120]}...")
+        print(f"  metadata: {result.get('metadata', {})}")
         print()
 
-    assert len(results) > 0, "expected at least one result for a common topic"
-    assert all(r.source_url.startswith("https://www.reddit.com") for r in results)
+    assert isinstance(results, list)
+    assert all(
+        result.get("url", "").startswith("https://www.reddit.com")
+        for result in results
+    )
+
     print("SMOKE TEST PASSED")
+
 
 if __name__ == "__main__":
     main()

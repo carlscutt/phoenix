@@ -1,5 +1,7 @@
 import subprocess
 
+from .exceptions import BackendUnavailableError
+
 
 def collect(command: list[str]) -> subprocess.CompletedProcess:
     """
@@ -8,9 +10,14 @@ def collect(command: list[str]) -> subprocess.CompletedProcess:
     This is intentionally a very thin wrapper around subprocess.run().
     """
 
-    return subprocess.run(
-        command,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
+    try:
+        return subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except FileNotFoundError as exc:
+        raise BackendUnavailableError(
+            f"Backend executable not found: {command[0]}"
+        ) from exc
